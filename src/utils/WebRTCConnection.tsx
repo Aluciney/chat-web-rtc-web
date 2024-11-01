@@ -37,6 +37,9 @@ export class WebRTCConnection {
 			this.socket.on('user-connected', (user: { id: string; }) => {
 				this.addPeerConnection(user.id, stream);
 			});
+			this.socket.on('user-disconnected', (user: { id: string; }) => {
+				this.cleanUpConnection(user.id);
+			});
 			this.socket.emit('users');
 		} catch (error) {
 			console.error("Erro ao acessar a mídia:", error);
@@ -154,6 +157,21 @@ export class WebRTCConnection {
 			if (peer && peer.signalingState === 'have-local-offer') {
 				await this.peerConnection[userId].setRemoteDescription(new RTCSessionDescription(answer!));
 			}
+		}
+	}
+
+	async changeRoom() {
+		if (this.remotesVideoRef.current) {
+			Object.values(this.remotesVideoRef.current).forEach(video => {
+				video.remove();
+			});
+			Object.keys(this.peerConnection).forEach(peer => {
+				if (peer) {
+					this.peerConnection[peer].getSenders().forEach(sender => this.peerConnection[peer].removeTrack(sender));
+					this.peerConnection[peer].close();
+					delete this.peerConnection[peer]
+				}
+			});
 		}
 	}
 };

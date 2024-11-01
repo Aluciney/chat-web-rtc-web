@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import io from 'socket.io-client';
 import { IoMicOffOutline, IoMicOutline, IoVideocamOutline, IoVideocamOffOutline } from "react-icons/io5";
 import { WebRTCConnection } from './utils/WebRTCConnection';
 
-const socket = io('http://localhost:3001');
+const socket = io('http://172.16.48.212:3001');
 socket.emit('join-room', 'room1');
 
 export const App: React.FC = () => {
@@ -12,10 +12,12 @@ export const App: React.FC = () => {
   const [videoEnabled, setVideoEnabled] = useState<boolean>(true);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
   const [volume, setVolume] = useState(1);
-
-  useEffect(() => {
-    const connection = new WebRTCConnection(localVideoRef, remotesVideoRef, socket);
-  }, [])
+  const [rooms, setRooms] = useState<{ name: string; value: string; }[]>([
+    { name: 'Teste 1', value: '46513213161' },
+    { name: 'Teste 2', value: '2342342355' },
+  ]);
+  const [roomId, setRoomId] = useState<{ name: string; value: string; }>();
+  const peerConnection = useMemo(() => new WebRTCConnection(localVideoRef, remotesVideoRef, socket), []);
 
   const toggleVideo = () => {
     if (localVideoRef.current?.srcObject instanceof MediaStream) {
@@ -46,7 +48,19 @@ export const App: React.FC = () => {
   return (
     <div className="container mx-auto ">
       <h1 className="text-white my-4">WebRTC Video Chat</h1>
-
+      <div className="flex gap-3">
+        {rooms.map(room => (
+          <button
+            type="button"
+            key={room.value}
+            onClick={() => setRoomId(room)}
+            className="cursor-pointer text-white hover:bg-slate-700 disabled:opacity-60 bg-slate-600 px-3 py-2 rounded-md"
+            disabled={roomId?.value === room.value}
+          >
+            {room.name}
+          </button>
+        ))}
+      </div>
       <div className="flex flex-wrap gap-3 mt-3" id="video">
         <div className="relative">
           <video
