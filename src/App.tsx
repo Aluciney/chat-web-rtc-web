@@ -2,43 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import io from 'socket.io-client';
 import { IoMicOffOutline, IoMicOutline, IoVideocamOutline, IoVideocamOffOutline } from "react-icons/io5";
 import { WebRTCConnection } from './utils/WebRTCConnection';
-import { api } from './services/api';
+
+const socket = io('http://localhost:3001');
+socket.emit('join-room', 'room1');
 
 export const App: React.FC = () => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remotesVideoRef = useRef<{ [userId: string]: HTMLVideoElement }>({});
   const [videoEnabled, setVideoEnabled] = useState<boolean>(true);
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
-  const [rooms, setRooms] = useState<{ name: string; value: string; }[]>([]);
-  const [roomId, setRoomId] = useState<{ name: string; value: string; }>();
   const [volume, setVolume] = useState(1);
 
   useEffect(() => {
-    async function getRooms() {
-      try {
-        const { data } = await api.get('/rooms');
-        setRooms(data);
-      } catch (error) {
-
-      }
-    }
-    getRooms();
+    const connection = new WebRTCConnection(localVideoRef, remotesVideoRef, socket);
   }, [])
-
-  useEffect(() => {
-    if (roomId) {
-      const socket = io('http://localhost:3001', { query: { room: roomId.value } });
-      const connection = new WebRTCConnection(localVideoRef, remoteVideoRef, socket, roomId.value);
-
-      return () => {
-        socket.off('offer');
-        socket.off('answer');
-        socket.off('candidate');
-        socket.disconnect();
-        connection.changeRoom();
-      };
-    }
-  }, [roomId]);
 
   const toggleVideo = () => {
     if (localVideoRef.current?.srcObject instanceof MediaStream) {
@@ -59,32 +36,18 @@ export const App: React.FC = () => {
   const handleVolumeChange = (event: any) => {
     const newVolume = event.target.value;
     setVolume(newVolume);
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.volume = newVolume;
-    }
+    Object.values(remotesVideoRef.current).forEach(video => {
+      if (video) {
+        video.volume = newVolume
+      }
+    });
   };
 
   return (
     <div className="container mx-auto ">
       <h1 className="text-white my-4">WebRTC Video Chat</h1>
 
-      <div className="flex flex-col items-start">
-        <h2 className="text-white">Salas:</h2>
-        <div className="flex gap-3">
-          {rooms.map(room => (
-            <button
-              type="button"
-              key={room.value}
-              onClick={() => setRoomId(room)}
-              className="cursor-pointer text-white hover:bg-slate-700 disabled:opacity-60 bg-slate-600 px-3 py-2 rounded-md"
-              disabled={roomId?.value === room.value}
-            >
-              {room.name}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-3 mt-3">
+      <div className="flex flex-wrap gap-3 mt-3" id="video">
         <div className="relative">
           <video
             ref={localVideoRef}
@@ -102,12 +65,6 @@ export const App: React.FC = () => {
             </button>
           </div>
         </div>
-        <video
-          ref={remoteVideoRef}
-          className="border-gray-900 bg-gray-900 border-[4px] rounded-md w-[400px] h-[300px]"
-          autoPlay
-          playsInline
-        ></video>
       </div>
       <div className="flex flex-col w-52 my-3">
         <label htmlFor="volume" className="text-white">Volume: </label>
